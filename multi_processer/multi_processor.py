@@ -32,7 +32,7 @@ if __name__ == "__main__":
     # 시작
     for name, p in workers.items():
         print(f"[{name}] 시작 중...")
-        p.start()
+        p.init()
 
     # 메인 로직 (데이터 확인)
     try:
