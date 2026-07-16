@@ -105,7 +105,7 @@ namespace RealSense
                 return;
             }
 
-            std::cout << "================================\n";
+            std::cout << "============================================\n";
             for (size_t i = 0; i < devices.size(); ++i) {
                 auto dev = devices[i];
                 std::string name = dev.get_info(RS2_CAMERA_INFO_NAME);
@@ -113,12 +113,12 @@ namespace RealSense
                 std::string firmware = dev.get_info(RS2_CAMERA_INFO_FIRMWARE_VERSION);
                 std::string usb_type = dev.get_info(RS2_CAMERA_INFO_USB_TYPE_DESCRIPTOR);
 
-                std::cout << "카메라 " << i + 1 << " : " << name << "\n";
+                std::cout << "▶ 카메라 " << i + 1 << " : " << name << "\n";
                 std::cout << "  - 시리얼 번호 : " << serial << "\n";
                 std::cout << "  - 펌웨어 버전 : " << firmware << "\n";
                 std::cout << "  - USB 연결 타입: USB " << usb_type << "\n";
             }
-            std::cout << "================================\n\n";
+            std::cout << "============================================\n\n";
         }
 
 
@@ -170,6 +170,41 @@ namespace RealSense
             }
             std::cout << "\n===================================\n\n";
         }
+
+        // 카메라 내부 파라미터 출력
+        void print_intrinsics()
+        {
+            if (!is_init) {
+                std::cout << "[Error] 카메라가 아직 초기화되지 않았습니다. init()을 먼저 호출해주세요.\n";
+                return;
+            }
+
+            // 현재 파이프라인에서 활성화된 스트림 프로필 가져오기
+            rs2::pipeline_profile active_profile = pipeline.get_active_profile();
+
+            std::cout << "============================================\n";
+            for (rs2::stream_profile stream_profile : active_profile.get_streams()) {
+                // 비디오 스트림인지 확인
+                if (auto video_profile = stream_profile.as<rs2::video_stream_profile>()) {
+
+                    // 내부 파라미터 구조체 가져오기
+                    rs2_intrinsics intrinsics = video_profile.get_intrinsics();
+                    std::string stream_name = rs2_stream_to_string(video_profile.stream_type());
+
+                    std::cout << "▶ 스트림: " << stream_name << "\n";
+                    std::cout << "  - 해상도: " << intrinsics.width << " x " << intrinsics.height << "\n";
+                    std::cout << "  - 초점 거리 (fx, fy): (" << intrinsics.fx << ", " << intrinsics.fy << ")\n";
+                    std::cout << "  - 주점 (ppx, ppy)   : (" << intrinsics.ppx << ", " << intrinsics.ppy << ")\n";
+                    std::cout << "  - 왜곡 모델         : " << rs2_distortion_to_string(intrinsics.model) << "\n";
+                    std::cout << "  - 왜곡 계수 (Coeffs): [";
+                    for (int i = 0; i < 5; ++i) {
+                        std::cout << intrinsics.coeffs[i] << (i < 4 ? ", " : "");
+                    }
+                    std::cout << "]\n\n";
+                }
+            }
+            std::cout << "============================================\n\n";
+        }
     };
 }
 
@@ -180,6 +215,7 @@ int main() {
     if (!camera.init()) {
         return -1;
     }
+    camera.print_intrinsics();
 
     cv::namedWindow("RealSense D405", cv::WINDOW_AUTOSIZE);
 

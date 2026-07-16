@@ -69,7 +69,7 @@ class RealSenseCamera:
             print("[Error] 연결된 RealSense 카메라를 찾을 수 없습니다.")
             return
 
-        print("================================")
+        print("============================================")
         for i, dev in enumerate(devices):
             name = dev.get_info(rs.camera_info.name)
             serial = dev.get_info(rs.camera_info.serial_number)
@@ -80,7 +80,7 @@ class RealSenseCamera:
             print(f"  - 시리얼 번호 : {serial}")
             print(f"  - 펌웨어 버전 : {firmware}")
             print(f"  - USB 연결 타입: USB {usb_type}")
-        print("================================\n")
+        print("============================================\n")
 
     def print_supported_resolutions(self):
         """ 카메라 센서별 지원 해상도, FPS, 포맷 출력 """
@@ -91,7 +91,7 @@ class RealSenseCamera:
             return
 
         dev = devices[0] # 첫 번째 연결된 기기 기준
-        print("\n=== [ 지원하는 해상도 및 프로필 ] ===")
+        print("\n============================================\n")
 
         for sensor in dev.query_sensors():
             sensor_name = sensor.get_info(rs.camera_info.name)
@@ -115,7 +115,35 @@ class RealSenseCamera:
             for p in sorted_profiles:
                 print(f"  - 스트림: {p[0]:5} | 해상도: {p[1]:4} x {p[2]:4} | FPS: {p[3]:2} | 포맷: {p[4]}")
 
-        print("\n===================================\n")
+        print("\n============================================\n")
+
+
+    def print_intrinsics(self):
+        """ 카메라 내부 파라미터(Intrinsics) 출력 """
+        if not self.is_init:
+            print("[Error] 카메라가 초기화되지 않았습니다. init()을 먼저 호출해주세요.")
+            return
+
+        # 현재 실행 중인 파이프라인의 활성 프로필 가져오기
+        active_profile = self.pipeline.get_active_profile()
+
+        print("\n============================================")
+        for stream_profile in active_profile.get_streams():
+            if stream_profile.is_video_stream_profile():
+                video_profile = stream_profile.as_video_stream_profile()
+                intrinsics = video_profile.get_intrinsics()
+                stream_name = stream_profile.stream_type().name
+
+                print(f"▶ 스트림: {stream_name}")
+                print(f"  - 해상도: {intrinsics.width} x {intrinsics.height}")
+                print(f"  - 초점 거리 (fx, fy): ({intrinsics.fx:.2f}, {intrinsics.fy:.2f})")
+                print(f"  - 주점 (ppx, ppy)   : ({intrinsics.ppx:.2f}, {intrinsics.ppy:.2f})")
+                print(f"  - 왜곡 모델         : {intrinsics.model.name}")
+
+                # Coeffs는 소수점 4자리까지 포맷팅하여 출력
+                formatted_coeffs = [f"{c:.4f}" for c in intrinsics.coeffs]
+                print(f"  - 왜곡 계수 (Coeffs): [{', '.join(formatted_coeffs)}]\n")
+        print("============================================\n")
 
     
 
