@@ -25,6 +25,7 @@ class RealSenseCamera:
                 self.pipeline.start(self.config)
                 self.is_init = True
                 print(f"[Info ] [RealSense] 카메라 연결 성공")
+                self.print_device_info()
                 return True
             except RuntimeError as e:
                 print(f"[Error] [RealSense] 카메라 연결 실패: {e}")
@@ -68,7 +69,7 @@ class RealSenseCamera:
             print("[Error] 연결된 RealSense 카메라를 찾을 수 없습니다.")
             return
 
-        print("\n=== [ 카메라 장치 정보 ] ===")
+        print("================================")
         for i, dev in enumerate(devices):
             name = dev.get_info(rs.camera_info.name)
             serial = dev.get_info(rs.camera_info.serial_number)
@@ -79,7 +80,7 @@ class RealSenseCamera:
             print(f"  - 시리얼 번호 : {serial}")
             print(f"  - 펌웨어 버전 : {firmware}")
             print(f"  - USB 연결 타입: USB {usb_type}")
-        print("============================\n")
+        print("================================\n")
 
     def print_supported_resolutions(self):
         """ 카메라 센서별 지원 해상도, FPS, 포맷 출력 """
@@ -121,8 +122,6 @@ class RealSenseCamera:
 
 def main():
     camera = RealSenseCamera(width=848, height=480, fps=30)
-    camera.print_device_info()
-    camera.print_supported_resolutions()
 
     try:
         if not camera.init():
