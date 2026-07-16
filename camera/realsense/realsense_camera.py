@@ -3,8 +3,6 @@ import numpy as np
 import cv2
 
 class RealSenseCamera:
-    """Intel RealSense 카메라 제어 및 유틸리티 클래스"""
-
     def __init__(self, width=848, height=480, fps=30):
         self.width    = width
         self.height   = height
@@ -17,15 +15,57 @@ class RealSenseCamera:
         self.config.enable_stream(rs.stream.depth, self.width, self.height, rs.format.z16, self.fps)
         self.config.enable_stream(rs.stream.color, self.width, self.height, rs.format.bgr8, self.fps)
 
-        self.is_streaming = False
+        self.is_init = False
+
+
+    def init(self) -> bool:
+        """ 카메라 초기화 """
+        if not self.is_init:
+            try:
+                self.pipeline.start(self.config)
+                self.is_init = True
+                print(f"[Info ] [RealSense] 카메라 연결 성공")
+                return True
+            except RuntimeError as e:
+                print(f"[Error] [RealSense] 카메라 연결 실패: {e}")
+                return False
+
+        # 이미 스트리밍 중인 경우
+        return True
+    
+    def destroy(self):
+        """ 카메라 종료 """
+        if self.is_init:
+            self.pipeline.stop()
+            self.is_init = False
+            print(f"[Info ] [RealSense] 카메라 종료")
+
+    def get_frames(self) -> tuple[np.ndarray | None, np.ndarray | None]:
+        """ 현재 프레임 리턴 """
+        if not self.is_init:
+            return None, None
+
+        frames = self.pipeline.wait_for_frames()
+        depth_frame = frames.get_depth_frame()
+        color_frame = frames.get_color_frame()
+
+        if not depth_frame or not color_frame:
+            return None, None
+
+        depth_image = np.asanyarray(depth_frame.get_data())
+        color_image = np.asanyarray(color_frame.get_data())
+
+        return color_image, depth_image  # numpy
+
+    
 
     def print_device_info(self):
-        """연결된 카메라의 장치 정보 출력"""
+        """ 연결된 카메라의 장치 정보 출력 """
         ctx = rs.context()
         devices = ctx.query_devices()
 
         if len(devices) == 0:
-            print("⚠️ 연결된 RealSense 카메라를 찾을 수 없습니다.")
+            print("[Error] 연결된 RealSense 카메라를 찾을 수 없습니다.")
             return
 
         print("\n=== [ 카메라 장치 정보 ] ===")
@@ -42,7 +82,7 @@ class RealSenseCamera:
         print("============================\n")
 
     def print_supported_resolutions(self):
-        """카메라 센서별 지원 해상도, FPS, 포맷 출력"""
+        """ 카메라 센서별 지원 해상도, FPS, 포맷 출력 """
         ctx = rs.context()
         devices = ctx.query_devices()
 
@@ -76,67 +116,26 @@ class RealSenseCamera:
 
         print("\n===================================\n")
 
-    def init(self) -> bool:
-        """카메라 스트리밍 시작 및 성공 여부 반환"""
-        if not self.is_streaming:
-            try:
-                self.pipeline.start(self.config)
-                self.is_streaming = True
-                print(f"[Info ] [RealSense] 카메라 연결 성공")
-                return True
-            except RuntimeError as e:
-                print(f"[Error] [RealSense] 카메라 연결 실패: {e}")
-                return False
-
-        # 이미 스트리밍 중인 경우
-        return True
-
-    def get_frames(self):
-        """컬러 및 깊이 프레임을 numpy 배열 형태로 반환"""
-        if not self.is_streaming:
-            return None, None
-
-        frames = self.pipeline.wait_for_frames()
-        depth_frame = frames.get_depth_frame()
-        color_frame = frames.get_color_frame()
-
-        if not depth_frame or not color_frame:
-            return None, None
-
-        depth_image = np.asanyarray(depth_frame.get_data())
-        color_image = np.asanyarray(color_frame.get_data())
-
-        return color_image, depth_image # list
-
-    def destroy(self):
-        """카메라 스트리밍 종료"""
-        if self.is_streaming:
-            self.pipeline.stop()
-            self.is_streaming = False
-            print(f"[Info ] [RealSense] 카메라 종료")
+    
 
 
 def main():
     camera = RealSenseCamera(width=848, height=480, fps=30)
-
-    # 💡 유틸리티 함수 호출: 스트리밍 시작 전에 카메라 속성과 지원 해상도 출력
     camera.print_device_info()
     camera.print_supported_resolutions()
 
     try:
-        # init()이 False를 반환하면 프로그램을 더 이상 진행하지 않음
         if not camera.init():
-            print("프로그램을 안전하게 종료합니다.")
             return
 
-        print("💡 종료하려면 'q' 또는 ESC를 누르세요.")
-
         while True:
+            # 프레임 데이터 읽기
             color_image, depth_image = camera.get_frames()
 
             if color_image is None or depth_image is None:
                 continue
 
+            # 뎁스 이미지 색상 매핑
             depth_colormap = cv2.applyColorMap(
                 cv2.convertScaleAbs(depth_image, alpha=0.03),
                 cv2.COLORMAP_JET
@@ -144,6 +143,8 @@ def main():
 
             images = np.hstack((color_image, depth_colormap))
 
+
+            # 카메라 데이터 시각화
             cv2.namedWindow('RealSense D405', cv2.WINDOW_AUTOSIZE)
             cv2.imshow('RealSense D405', images)
 
